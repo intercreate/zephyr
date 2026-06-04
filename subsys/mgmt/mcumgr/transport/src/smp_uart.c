@@ -22,6 +22,12 @@
 
 BUILD_ASSERT(CONFIG_MCUMGR_TRANSPORT_UART_MTU != 0, "CONFIG_MCUMGR_TRANSPORT_UART_MTU must be > 0");
 
+/* The reassembly netbuf holds the base64-decoded SMP frame, so the UART MTU cannot
+ * exceed it. This relation is documented in Kconfig.uart; enforce it at build time.
+ */
+BUILD_ASSERT(CONFIG_MCUMGR_TRANSPORT_UART_MTU <= CONFIG_MCUMGR_TRANSPORT_NETBUF_SIZE + 2,
+	     "CONFIG_MCUMGR_TRANSPORT_UART_MTU must be <= CONFIG_MCUMGR_TRANSPORT_NETBUF_SIZE + 2");
+
 struct device;
 
 static void smp_uart_process_rx_queue(struct k_work *work);
