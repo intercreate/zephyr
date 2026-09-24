@@ -3,3 +3,12 @@ common:
   type: unit
 tests:
   utilities.time_units.z_tmcvt: {}
+  utilities.time_units.ticks_1000:
+    extra_configs:
+      - CONFIG_SYS_CLOCK_TICKS_PER_SEC=1000
+  utilities.time_units.ticks_32768:
+    extra_configs:
+      - CONFIG_SYS_CLOCK_TICKS_PER_SEC=32768
+  utilities.time_units.timeout_32bit:
+    extra_configs:
+      - CONFIG_TIMEOUT_64BIT=n

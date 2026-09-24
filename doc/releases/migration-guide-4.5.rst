@@ -133,6 +133,12 @@ Kernel
   be used as futex address. The error -EINVAL can no longer happen on futex
   operations.
 
+* With GCC, the argument of a time unit conversion macro such as :c:macro:`K_MSEC` or
+  :c:macro:`k_ms_to_ticks_ceil32` used in a static initializer must be an integer constant
+  expression. A ``const`` variable, which GCC folded as an extension, is now rejected with
+  ``initializer element is not constant``. Use a macro, an enumerator or, with
+  :kconfig:option:`CONFIG_STD_C23`, a ``constexpr`` object instead.
+
 Boards
 ******
 

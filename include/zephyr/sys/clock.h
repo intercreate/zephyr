@@ -125,19 +125,32 @@ typedef struct {
 #define Z_TIMEOUT_TICKS(t) ((k_timeout_t)Z_TIMEOUT_TICKS_INIT(t))
 #define Z_FOREVER          Z_TIMEOUT_TICKS(K_TICKS_FOREVER)
 
+static ALWAYS_INLINE int64_t z_timeout_clamp_once(int64_t t)
+{
+	return MAX(t, 0);
+}
+
+#define Z_TIMEOUT_CLAMP(t) z_tmcvt_choose(z_tmcvt_const_arg(t), MAX(t, 0), z_timeout_clamp_once(t))
+
 #ifdef CONFIG_TIMEOUT_64BIT
-#define Z_TIMEOUT_MS(t)       Z_TIMEOUT_TICKS((k_ticks_t)k_ms_to_ticks_ceil64(MAX(t, 0)))
-#define Z_TIMEOUT_US(t)       Z_TIMEOUT_TICKS((k_ticks_t)k_us_to_ticks_ceil64(MAX(t, 0)))
-#define Z_TIMEOUT_NS(t)       Z_TIMEOUT_TICKS((k_ticks_t)k_ns_to_ticks_ceil64(MAX(t, 0)))
-#define Z_TIMEOUT_CYC(t)      Z_TIMEOUT_TICKS((k_ticks_t)k_cyc_to_ticks_ceil64(MAX(t, 0)))
-#define Z_TIMEOUT_MS_TICKS(t) ((k_ticks_t)k_ms_to_ticks_ceil64(MAX(t, 0)))
+#define Z_TIMEOUT_MS(t)       Z_TIMEOUT_TICKS((k_ticks_t)k_ms_to_ticks_ceil64(Z_TIMEOUT_CLAMP(t)))
+#define Z_TIMEOUT_US(t)       Z_TIMEOUT_TICKS((k_ticks_t)k_us_to_ticks_ceil64(Z_TIMEOUT_CLAMP(t)))
+#define Z_TIMEOUT_NS(t)       Z_TIMEOUT_TICKS((k_ticks_t)k_ns_to_ticks_ceil64(Z_TIMEOUT_CLAMP(t)))
+#define Z_TIMEOUT_CYC(t)      Z_TIMEOUT_TICKS((k_ticks_t)k_cyc_to_ticks_ceil64(Z_TIMEOUT_CLAMP(t)))
+#define Z_TIMEOUT_MS_TICKS(t) ((k_ticks_t)k_ms_to_ticks_ceil64(Z_TIMEOUT_CLAMP(t)))
 #else
-#define Z_TIMEOUT_MS(t)       Z_TIMEOUT_TICKS((k_ticks_t)k_ms_to_ticks_ceil32(MAX(t, 0)))
-#define Z_TIMEOUT_US(t)       Z_TIMEOUT_TICKS((k_ticks_t)k_us_to_ticks_ceil32(MAX(t, 0)))
-#define Z_TIMEOUT_NS(t)       Z_TIMEOUT_TICKS((k_ticks_t)k_ns_to_ticks_ceil32(MAX(t, 0)))
-#define Z_TIMEOUT_CYC(t)      Z_TIMEOUT_TICKS((k_ticks_t)k_cyc_to_ticks_ceil32(MAX(t, 0)))
-#define Z_TIMEOUT_MS_TICKS(t) ((k_ticks_t)k_ms_to_ticks_ceil32(MAX(t, 0)))
+#define Z_TIMEOUT_MS(t)       Z_TIMEOUT_TICKS((k_ticks_t)k_ms_to_ticks_ceil32(Z_TIMEOUT_CLAMP(t)))
+#define Z_TIMEOUT_US(t)       Z_TIMEOUT_TICKS((k_ticks_t)k_us_to_ticks_ceil32(Z_TIMEOUT_CLAMP(t)))
+#define Z_TIMEOUT_NS(t)       Z_TIMEOUT_TICKS((k_ticks_t)k_ns_to_ticks_ceil32(Z_TIMEOUT_CLAMP(t)))
+#define Z_TIMEOUT_CYC(t)      Z_TIMEOUT_TICKS((k_ticks_t)k_cyc_to_ticks_ceil32(Z_TIMEOUT_CLAMP(t)))
+#define Z_TIMEOUT_MS_TICKS(t) ((k_ticks_t)k_ms_to_ticks_ceil32(Z_TIMEOUT_CLAMP(t)))
 #endif
+
+/* forever_ms is SYS_FOREVER_MS converted to the type of the SYS_TIMEOUT_MS() argument */
+static ALWAYS_INLINE k_ticks_t z_sys_timeout_ms_ticks_once(int64_t ms, int64_t forever_ms)
+{
+	return (ms == forever_ms) ? K_TICKS_FOREVER : Z_TIMEOUT_MS_TICKS(ms);
+}
 
 /* Converts between absolute timeout expiration values (packed into
  * the negative space below K_TICKS_FOREVER) and (non-negative) delta
