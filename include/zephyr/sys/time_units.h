@@ -130,6 +130,25 @@ static inline unsigned int z_impl_sys_clock_hw_cycles_per_sec_runtime_get(void)
  * the results may be used to initialize global variables.
  */
 
+/* Constant operands take the expression form, which stays an integer constant
+ * expression; others are evaluated once as function arguments.
+ */
+#if defined(__cplusplus) && HAS_BUILTIN(__builtin_constant_p)
+#define z_tmcvt_const_arg(__x) __builtin_constant_p(__x)
+#define z_tmcvt_choose(__is_const, __expr, __once) ((__is_const) ? (__expr) : (__once))
+#elif !defined(__cplusplus) && HAS_BUILTIN(__builtin_constant_p) && \
+	HAS_BUILTIN(__builtin_choose_expr)
+#define z_tmcvt_const_arg(__x) __builtin_constant_p(__x)
+#define z_tmcvt_choose(__is_const, __expr, __once) __builtin_choose_expr(__is_const, __expr, __once)
+#else
+#define z_tmcvt_const_arg(__x) true
+#define z_tmcvt_choose(__is_const, __expr, __once) (__expr)
+#endif
+
+#define z_tmcvt_is_const(__t, __from_hz, __to_hz)			\
+	(z_tmcvt_const_arg(__t) && z_tmcvt_const_arg(__from_hz) &&	\
+	 z_tmcvt_const_arg(__to_hz))
+
 /* true if the conversion is the identity */
 #define z_tmcvt_is_identity(__from_hz, __to_hz) \
 	((__to_hz) == (__from_hz))
@@ -182,28 +201,44 @@ static inline unsigned int z_impl_sys_clock_hw_cycles_per_sec_runtime_get(void)
 	 0)
 
 /* Integer division 32-bit conversion */
+#define z_tmcvt_int_div_32_expr(__t, __off, __divisor)			\
+	((uint64_t) (__t) <= 0xffffffffU - (__off) ?			\
+	 (uint32_t) (((__t) + (__off)) / (__divisor)) :		\
+	 (uint32_t) (((uint64_t) (__t) + (__off)) / (__divisor)))
+
+static ALWAYS_INLINE uint32_t z_tmcvt_int_div_32_once(uint64_t t, uint32_t off, uint32_t divisor)
+{
+	return z_tmcvt_int_div_32_expr(t, off, divisor);
+}
+
 #define z_tmcvt_int_div_32(__t, __from_hz, __to_hz, __round_up, __round_off) \
-	((uint64_t) (__t) <= 0xffffffffU -				\
-	 z_tmcvt_off_div(__from_hz, __to_hz, __round_up, __round_off) ?	\
-	 ((uint32_t)(((__t) +						\
-		     z_tmcvt_off_div(__from_hz, __to_hz,		\
-				     __round_up, __round_off)) /	\
-	  z_tmcvt_divisor(__from_hz, __to_hz)))				\
-	 :								\
-	 (uint32_t) (((uint64_t) (__t) +				\
-		      z_tmcvt_off_div(__from_hz, __to_hz,		\
-				      __round_up, __round_off)) /	\
-		     z_tmcvt_divisor(__from_hz, __to_hz))		\
-		)
+	z_tmcvt_choose(z_tmcvt_const_arg(__t),				\
+		       z_tmcvt_int_div_32_expr(__t,			\
+			       z_tmcvt_off_div(__from_hz, __to_hz, __round_up, __round_off), \
+			       z_tmcvt_divisor(__from_hz, __to_hz)),		\
+		       z_tmcvt_int_div_32_once(__t,			\
+			       z_tmcvt_off_div(__from_hz, __to_hz, __round_up, __round_off), \
+			       z_tmcvt_divisor(__from_hz, __to_hz)))
 
 /* Integer multiplication 32-bit conversion */
 #define z_tmcvt_int_mul_32(__t, __from_hz, __to_hz)	\
 	((uint32_t) ((__t)*((__to_hz) / (__from_hz))))
 
 /* General 32-bit conversion */
-#define z_tmcvt_gen_32(__t, __from_hz, __to_hz, __round_up, __round_off) \
+#define z_tmcvt_gen_32_expr(__t, __from_hz, __to_hz, __round_up, __round_off) \
 	((uint32_t) (((uint64_t) (__t)*(__to_hz) +			\
 		      z_tmcvt_off_gen(__from_hz, __to_hz, __round_up, __round_off)) / (__from_hz)))
+
+static ALWAYS_INLINE uint32_t z_tmcvt_gen_32_once(uint64_t t, uint32_t from_hz, uint32_t to_hz,
+						  bool round_up, bool round_off)
+{
+	return z_tmcvt_gen_32_expr(t, from_hz, to_hz, round_up, round_off);
+}
+
+#define z_tmcvt_gen_32(__t, __from_hz, __to_hz, __round_up, __round_off) \
+	z_tmcvt_choose(z_tmcvt_is_const(__t, __from_hz, __to_hz),	\
+		       z_tmcvt_gen_32_expr(__t, __from_hz, __to_hz, __round_up, __round_off), \
+		       z_tmcvt_gen_32_once(__t, __from_hz, __to_hz, __round_up, __round_off))
 
 /* Integer division 64-bit conversion */
 #define z_tmcvt_int_div_64(__t, __from_hz, __to_hz, __round_up, __round_off) \
@@ -221,10 +256,22 @@ static inline unsigned int z_impl_sys_clock_hw_cycles_per_sec_runtime_get(void)
 	  z_tmcvt_off_gen(__from_hz, __to_hz, __round_up, __round_off)) / (__from_hz))
 
 /* Slow 64-bit conversion. This avoids overflowing the multiply */
-#define z_tmcvt_gen_64_slow(__t, __from_hz, __to_hz, __round_up, __round_off) \
+#define z_tmcvt_gen_64_slow_expr(__t, __from_hz, __to_hz, __round_up, __round_off) \
 	((((uint64_t) (__t) / (__from_hz))*(__to_hz)) +			\
 	 (((((uint64_t) (__t) % (__from_hz))*(__to_hz)) +		\
 	  z_tmcvt_off_gen(__from_hz, __to_hz, __round_up, __round_off)) / (__from_hz)))
+
+static ALWAYS_INLINE uint64_t z_tmcvt_gen_64_slow_once(uint64_t t, uint32_t from_hz,
+						       uint32_t to_hz, bool round_up,
+						       bool round_off)
+{
+	return z_tmcvt_gen_64_slow_expr(t, from_hz, to_hz, round_up, round_off);
+}
+
+#define z_tmcvt_gen_64_slow(__t, __from_hz, __to_hz, __round_up, __round_off) \
+	z_tmcvt_choose(z_tmcvt_is_const(__t, __from_hz, __to_hz),	\
+		       z_tmcvt_gen_64_slow_expr(__t, __from_hz, __to_hz, __round_up, __round_off), \
+		       z_tmcvt_gen_64_slow_once(__t, __from_hz, __to_hz, __round_up, __round_off))
 
 /* General 64-bit conversion. Uses one of the two above macros */
 #define z_tmcvt_gen_64(__t, __from_hz, __to_hz, __round_up, __round_off) \
