@@ -2094,6 +2094,13 @@ Other notable changes
     failure.  Use :c:func:`k_thread_cpu_pin` to reassign a thread to a
     different CPU.
 
+  * With GCC and Clang, the time unit conversion macros (``k_<from>_to_<to>_<round><bits>()``),
+    :c:macro:`K_MSEC`, :c:macro:`K_USEC`, :c:macro:`K_NSEC`, :c:macro:`K_CYC`,
+    :c:macro:`K_SECONDS` and :c:macro:`SYS_TIMEOUT_MS` evaluate an argument that is not a
+    compile-time constant exactly once. An argument such as ``deadline - k_uptime_get()`` was
+    evaluated up to four times, and reads of a running clock could disagree within one
+    conversion. Constant arguments still produce integer constant expressions.
+
 * Timer
 
   * With :kconfig:option:`CONFIG_SYSTEM_CLOCK_SLOPPY_IDLE` enabled, a driver may no
