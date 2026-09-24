@@ -42,8 +42,9 @@ extern "C" {
  * converted from milliseconds.
  */
 #define SYS_TIMEOUT_MS_INIT(ms) \
-	Z_TIMEOUT_TICKS_INIT((ms) == SYS_FOREVER_MS ? \
-	K_TICKS_FOREVER : Z_TIMEOUT_MS_TICKS(ms))
+	Z_TIMEOUT_TICKS_INIT(z_tmcvt_choose(z_tmcvt_const_arg(ms), \
+	((ms) == SYS_FOREVER_MS ? K_TICKS_FOREVER : Z_TIMEOUT_MS_TICKS(ms)), \
+	z_sys_timeout_ms_ticks_once(ms, 0 ? (ms) : SYS_FOREVER_MS)))
 
 /** @brief System-wide macro to convert milliseconds to kernel timeouts
  */

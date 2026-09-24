@@ -146,6 +146,12 @@ static ALWAYS_INLINE int64_t z_timeout_clamp_once(int64_t t)
 #define Z_TIMEOUT_MS_TICKS(t) ((k_ticks_t)k_ms_to_ticks_ceil32(Z_TIMEOUT_CLAMP(t)))
 #endif
 
+/* forever_ms is SYS_FOREVER_MS converted to the type of the SYS_TIMEOUT_MS() argument */
+static ALWAYS_INLINE k_ticks_t z_sys_timeout_ms_ticks_once(int64_t ms, int64_t forever_ms)
+{
+	return (ms == forever_ms) ? K_TICKS_FOREVER : Z_TIMEOUT_MS_TICKS(ms);
+}
+
 /* Converts between absolute timeout expiration values (packed into
  * the negative space below K_TICKS_FOREVER) and (non-negative) delta
  * timeout values.  If the result of Z_TICK_ABS(t) is >= 0, then the
